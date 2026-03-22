@@ -3,16 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Layers, ChevronRight, MessageSquare, Target, Zap } from 'lucide-react';
-import { DedupCluster as DedupClusterType } from '../types';
+import { Complaint, DedupCluster as DedupClusterType } from '../types';
 import { cn } from '../lib/utils';
+import { mockClusters } from '../mockData';
 
 interface DedupClusterProps {
+  complaints: Complaint[];
   clusters: DedupClusterType[];
 }
 
-export default function DedupCluster({ clusters }: DedupClusterProps) {
+export default function DedupCluster({ complaints, clusters }: DedupClusterProps) {
+  const stats = useMemo(() => {
+    return {
+      totalClusters: clusters.length,
+      totalComplaints: complaints.length
+    };
+  }, [complaints, clusters]);
+
   return (
     <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-zinc-950">
       <div className="flex items-center justify-between">
@@ -27,7 +36,7 @@ export default function DedupCluster({ clusters }: DedupClusterProps) {
             </div>
             <div>
               <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Total Clusters</p>
-              <h3 className="text-xl font-bold text-zinc-100">{clusters.length}</h3>
+              <h3 className="text-xl font-bold text-zinc-100">{stats.totalClusters}</h3>
             </div>
           </div>
           <button className="px-4 py-2 bg-emerald-500 text-zinc-950 rounded-lg font-bold text-sm hover:bg-emerald-400 transition-colors flex items-center gap-2">
@@ -38,7 +47,7 @@ export default function DedupCluster({ clusters }: DedupClusterProps) {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        {clusters.map(cluster => (
+        {clusters.length > 0 ? clusters.map(cluster => (
           <div key={cluster.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden group hover:border-emerald-500/30 transition-all">
             <div className="p-6 flex items-start justify-between border-b border-zinc-800">
               <div className="space-y-2">
@@ -85,7 +94,12 @@ export default function DedupCluster({ clusters }: DedupClusterProps) {
               </div>
             </div>
           </div>
-        ))}
+        )) : (
+          <div className="flex flex-col items-center justify-center py-20 text-zinc-500 space-y-4">
+            <Layers className="w-12 h-12 opacity-20" />
+            <p className="text-sm font-medium">No duplicate clusters identified yet.</p>
+          </div>
+        )}
       </div>
     </div>
   );

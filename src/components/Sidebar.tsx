@@ -41,6 +41,7 @@ export type ViewState =
 interface SidebarProps {
   complaintCount: number;
   groupCount: number;
+  escalationCount: number;
   onViewChange: (view: ViewState) => void;
   onManualEntry: () => void;
   currentView: ViewState;
@@ -49,6 +50,7 @@ interface SidebarProps {
 export default function Sidebar({ 
   complaintCount,
   groupCount,
+  escalationCount,
   onViewChange,
   onManualEntry,
   currentView
@@ -60,6 +62,16 @@ export default function Sidebar({
 
   const integrationOptions = [
     { name: 'Manual Entry', icon: <Plus className="w-4 h-4" />, action: onManualEntry },
+    { name: 'Seed 50 More', icon: <Database className="w-4 h-4" />, action: async () => {
+      try {
+        const response = await fetch('/api/seed-more', { method: 'POST' });
+        if (response.ok) {
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('Failed to seed:', error);
+      }
+    }},
     { name: 'WhatsApp', icon: <Smartphone className="w-4 h-4" /> },
     { name: 'Facebook', icon: <Facebook className="w-4 h-4" /> },
     { name: 'Twitter', icon: <Twitter className="w-4 h-4" /> },
@@ -75,7 +87,7 @@ export default function Sidebar({
     { id: 'dedup', label: 'Dedup Cluster', icon: Layers, section: 'Analysis', count: groupCount },
     { id: 'grouped', label: 'Grouped Messages', icon: MessageSquare, section: 'Analysis' },
     { id: 'reports', label: 'Regulatory Reports', icon: FileBarChart, section: 'Operations' },
-    { id: 'escalation', label: 'Escalation Queue', icon: AlertTriangle, section: 'Operations' },
+    { id: 'escalation', label: 'Escalation Queue', icon: AlertTriangle, section: 'Operations', count: escalationCount },
   ];
 
   const sections = ['Main', 'Analysis', 'Operations'];

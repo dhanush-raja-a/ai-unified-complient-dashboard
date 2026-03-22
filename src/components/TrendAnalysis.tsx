@@ -3,22 +3,69 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, Activity, Users, Clock, ShieldCheck, Zap, AlertTriangle } from 'lucide-react';
-import { TrendData } from '../types';
+import { Complaint, TrendData } from '../types';
 import { cn } from '../lib/utils';
-import { categoryTrendData, slaComplianceTrendData, resolutionTimeTrendData, escalationTrendData } from '../mockData';
 
 interface TrendAnalysisProps {
-  trendData: TrendData[];
+  complaints: Complaint[];
 }
 
-export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
-  const currentTrend = trendData[trendData.length - 1].count;
-  const previousTrend = trendData[trendData.length - 2].count;
-  const trendDiff = currentTrend - previousTrend;
-  const trendPercent = ((trendDiff / previousTrend) * 100).toFixed(1);
+export default function TrendAnalysis({ complaints }: TrendAnalysisProps) {
+  const stats = useMemo(() => {
+    // Trend data (last 7 days)
+    const trendMap: Record<string, number> = {};
+    const categoryTrendMap: Record<string, any> = {};
+    const slaTrendMap: Record<string, any> = {};
+    
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      trendMap[dateStr] = 0;
+      categoryTrendMap[dateStr] = { date: dateStr, billing: 0, technical: 0, internet: 0, general: 0 };
+      slaTrendMap[dateStr] = { date: dateStr, within: 0, breached: 0 };
+    }
+
+    complaints.forEach(c => {
+      const dateStr = c.createdAt.split('T')[0];
+      if (trendMap[dateStr] !== undefined) {
+        trendMap[dateStr]++;
+        
+        const cat = c.category.toLowerCase();
+        if (cat.includes('billing')) categoryTrendMap[dateStr].billing++;
+        else if (cat.includes('technical')) categoryTrendMap[dateStr].technical++;
+        else if (cat.includes('internet')) categoryTrendMap[dateStr].internet++;
+        else categoryTrendMap[dateStr].general++;
+
+        if (c.status === 'resolved' || c.status === 'in-progress') slaTrendMap[dateStr].within++;
+        else slaTrendMap[dateStr].breached++;
+      }
+    });
+
+    const trend = Object.entries(trendMap).map(([date, count]) => ({ date, count }));
+    const categoryTrend = Object.values(categoryTrendMap);
+    const slaTrend = Object.values(slaTrendMap);
+    
+    const currentTrend = trend[trend.length - 1].count;
+    const previousTrend = trend[trend.length - 2]?.count || 0;
+    const trendDiff = currentTrend - previousTrend;
+    const trendPercent = previousTrend > 0 ? ((trendDiff / previousTrend) * 100).toFixed(1) : '0.0';
+
+    const uniqueCustomers = new Set(complaints.map(c => c.customerName)).size;
+
+    return {
+      trend,
+      categoryTrend,
+      slaTrend,
+      currentTrend,
+      trendDiff,
+      trendPercent,
+      uniqueCustomers
+    };
+  }, [complaints]);
 
   return (
     <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-zinc-950">
@@ -43,15 +90,15 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
             </div>
             <span className={cn(
               "text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1",
-              trendDiff >= 0 ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-500"
+              stats.trendDiff >= 0 ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-500"
             )}>
-              {trendDiff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-              {trendPercent}%
+              {stats.trendDiff >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {stats.trendPercent}%
             </span>
           </div>
           <div>
             <p className="text-sm text-zinc-500 font-medium">Daily Volume</p>
-            <h3 className="text-2xl font-bold text-zinc-100">{currentTrend} Complaints</h3>
+            <h3 className="text-2xl font-bold text-zinc-100">{stats.currentTrend} Complaints</h3>
           </div>
         </div>
 
@@ -63,7 +110,7 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
           </div>
           <div>
             <p className="text-sm text-zinc-500 font-medium">Unique Customers</p>
-            <h3 className="text-2xl font-bold text-zinc-100">84 Active</h3>
+            <h3 className="text-2xl font-bold text-zinc-100">{stats.uniqueCustomers} Active</h3>
           </div>
         </div>
       </div>
@@ -77,7 +124,7 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
+              <AreaChart data={stats.trend}>
                 <defs>
                   <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -115,7 +162,7 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={categoryTrendData}>
+              <BarChart data={stats.categoryTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} opacity={0.3} />
                 <XAxis 
                   dataKey="date" 
@@ -133,8 +180,8 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }} />
                 <Bar dataKey="billing" stackId="a" fill="#3b82f6" />
                 <Bar dataKey="technical" stackId="a" fill="#10b981" />
-                <Bar dataKey="service" stackId="a" fill="#f59e0b" />
-                <Bar dataKey="product" stackId="a" fill="#ef4444" />
+                <Bar dataKey="internet" stackId="a" fill="#f59e0b" />
+                <Bar dataKey="general" stackId="a" fill="#ef4444" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -151,7 +198,7 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={slaComplianceTrendData}>
+              <AreaChart data={stats.slaTrend}>
                 <defs>
                   <linearGradient id="colorWithin" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -178,10 +225,6 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-            <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">AI Insight</p>
-            <p className="text-xs text-zinc-400 mt-1">SLA compliance improved to 94% today from a low of 85% earlier this week.</p>
-          </div>
         </div>
 
         {/* 4. Resolution Time Trend */}
@@ -195,7 +238,7 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={resolutionTimeTrendData}>
+              <LineChart data={stats.trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} opacity={0.3} />
                 <XAxis 
                   dataKey="date" 
@@ -210,49 +253,9 @@ export default function TrendAnalysis({ trendData }: TrendAnalysisProps) {
                   contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
                   itemStyle={{ color: '#8b5cf6', fontSize: '12px' }}
                 />
-                <Line type="monotone" dataKey="time" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
+                <Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
               </LineChart>
             </ResponsiveContainer>
-          </div>
-          <div className="p-3 bg-violet-500/5 border border-violet-500/10 rounded-xl">
-            <p className="text-[10px] text-violet-500 font-bold uppercase tracking-wider">AI Insight</p>
-            <p className="text-xs text-zinc-400 mt-1">Average resolution time improved from 48 hours to 30 hours over the last 7 days.</p>
-          </div>
-        </div>
-
-        {/* 5. Escalation Trend */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h3 className="font-bold text-zinc-100">Escalation Trend</h3>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Complaints escalated to higher management</p>
-            </div>
-            <AlertTriangle className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={escalationTrendData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} opacity={0.3} />
-                <XAxis 
-                  dataKey="date" 
-                  stroke="#52525b" 
-                  fontSize={10}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(str) => new Date(str).toLocaleDateString(undefined, { weekday: 'short' })}
-                />
-                <YAxis stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '8px' }}
-                  itemStyle={{ color: '#ef4444', fontSize: '12px' }}
-                />
-                <Line type="stepAfter" dataKey="count" stroke="#ef4444" strokeWidth={3} dot={{ r: 4, fill: '#ef4444' }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="p-3 bg-rose-500/5 border border-rose-500/10 rounded-xl">
-            <p className="text-[10px] text-rose-500 font-bold uppercase tracking-wider">Observation</p>
-            <p className="text-xs text-zinc-400 mt-1">Escalations peaked on March 21st, likely due to the reported system outage.</p>
           </div>
         </div>
       </div>

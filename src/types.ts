@@ -32,6 +32,8 @@ export interface Complaint {
   messages: Message[];
   tags: string[];
   groupId?: string;
+  isEscalated?: boolean;
+  escalationReason?: string;
 }
 
 export interface ComplaintGroup {

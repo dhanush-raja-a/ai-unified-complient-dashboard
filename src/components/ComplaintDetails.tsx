@@ -34,9 +34,10 @@ interface ComplaintDetailsProps {
   onBack: () => void;
   onUpdateStatus: (id: string, status: Complaint['status']) => void;
   onAddMessage: (id: string, message: Message) => void;
+  onEscalate: (id: string, reason: string) => void;
 }
 
-export default function ComplaintDetails({ complaint, onBack, onUpdateStatus, onAddMessage }: ComplaintDetailsProps) {
+export default function ComplaintDetails({ complaint, onBack, onUpdateStatus, onAddMessage, onEscalate }: ComplaintDetailsProps) {
   const [draft, setDraft] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -94,6 +95,22 @@ export default function ComplaintDetails({ complaint, onBack, onUpdateStatus, on
   const handleImmediateResponse = () => {
     const immediateMsg = "We've prioritized your request due to the urgency. A specialist is reviewing it right now.";
     setDraft(immediateMsg);
+  };
+
+  const handleEscalate = async () => {
+    try {
+      const response = await fetch(`/api/complaints/${complaint.id}/escalate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'High priority escalation requested by agent.' })
+      });
+      if (response.ok) {
+        alert('Complaint escalated successfully');
+        onEscalate(complaint.id, 'High priority escalation requested by agent.');
+      }
+    } catch (error) {
+      console.error('Failed to escalate:', error);
+    }
   };
 
   const severityColors = {
@@ -311,7 +328,10 @@ export default function ComplaintDetails({ complaint, onBack, onUpdateStatus, on
           <div>
             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4">Actions</h3>
             <div className="space-y-2">
-              <button className="w-full px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm font-medium transition-colors flex items-center gap-3">
+              <button 
+                onClick={handleEscalate}
+                className="w-full px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-sm font-medium transition-colors flex items-center gap-3"
+              >
                 <AlertTriangle className="w-4 h-4 text-amber-500" />
                 Escalate to Manager
               </button>

@@ -3,16 +3,29 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FileText, Download, Filter, Search, Calendar, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
-import { RegulatoryReport } from '../types';
+import { Complaint, RegulatoryReport } from '../types';
 import { cn } from '../lib/utils';
+import { mockReports } from '../mockData';
 
 interface RegulatoryReportsProps {
-  reports: RegulatoryReport[];
+  complaints: Complaint[];
 }
 
-export default function RegulatoryReports({ reports }: RegulatoryReportsProps) {
+export default function RegulatoryReports({ complaints }: RegulatoryReportsProps) {
+  const stats = useMemo(() => {
+    const submittedCount = mockReports.filter(r => r.status === 'Submitted').length;
+    const pendingCount = mockReports.filter(r => r.status === 'Draft').length;
+    const criticalComplaints = complaints.filter(c => c.severity === 'critical' && c.status !== 'resolved').length;
+
+    return {
+      submittedCount,
+      pendingCount,
+      criticalComplaints
+    };
+  }, [complaints]);
+
   return (
     <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-zinc-950">
       <div className="flex items-center justify-between">
@@ -35,7 +48,7 @@ export default function RegulatoryReports({ reports }: RegulatoryReportsProps) {
           </div>
           <div>
             <p className="text-sm text-zinc-500 font-medium">Reports Submitted</p>
-            <h3 className="text-2xl font-bold text-zinc-100">12</h3>
+            <h3 className="text-2xl font-bold text-zinc-100">{stats.submittedCount}</h3>
           </div>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
@@ -46,7 +59,7 @@ export default function RegulatoryReports({ reports }: RegulatoryReportsProps) {
           </div>
           <div>
             <p className="text-sm text-zinc-500 font-medium">Pending Review</p>
-            <h3 className="text-2xl font-bold text-zinc-100">3</h3>
+            <h3 className="text-2xl font-bold text-zinc-100">{stats.pendingCount}</h3>
           </div>
         </div>
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4">
@@ -56,8 +69,8 @@ export default function RegulatoryReports({ reports }: RegulatoryReportsProps) {
             </div>
           </div>
           <div>
-            <p className="text-sm text-zinc-500 font-medium">Compliance Alerts</p>
-            <h3 className="text-2xl font-bold text-zinc-100">0</h3>
+            <p className="text-sm text-zinc-500 font-medium">Critical Issues (Unresolved)</p>
+            <h3 className="text-2xl font-bold text-zinc-100">{stats.criticalComplaints}</h3>
           </div>
         </div>
       </div>
@@ -93,7 +106,7 @@ export default function RegulatoryReports({ reports }: RegulatoryReportsProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
-              {reports.map(report => (
+              {mockReports.map(report => (
                 <tr key={report.id} className="hover:bg-zinc-800/30 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">

@@ -46,27 +46,21 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../lib/utils';
-import { 
-  dashboardStats, 
-  sourceStats, 
-  trendData, 
-  escalationTrendData, 
-  agentPerformanceData, 
-  severityBreakdownData, 
-  statusDistributionData,
-  rootCauseData
-} from '../mockData';
-import { FilterState, ComplaintStatus, ComplaintCategory, ComplaintSeverity, ComplaintSource } from '../types';
+import { Complaint, FilterState, ComplaintStatus, ComplaintCategory, ComplaintSeverity, ComplaintSource } from '../types';
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 const SEVERITY_COLORS: Record<string, string> = {
-  'Low': '#10b981',
-  'Medium': '#3b82f6',
-  'High': '#f59e0b',
-  'Critical': '#ef4444'
+  'low': '#10b981',
+  'medium': '#3b82f6',
+  'high': '#f59e0b',
+  'critical': '#ef4444'
 };
 
-export default function Dashboard() {
+interface DashboardProps {
+  complaints: Complaint[];
+}
+
+export default function Dashboard({ complaints }: DashboardProps) {
   const [filters, setFilters] = useState<FilterState>({
     dateRange: '7d',
     status: 'all',
@@ -79,16 +73,81 @@ export default function Dashboard() {
 
   const [showFilters, setShowFilters] = useState(false);
 
+  const stats = useMemo(() => {
+    const total = complaints.length;
+    const open = complaints.filter(c => c.status === 'unresolved').length;
+    const inProgress = complaints.filter(c => c.status === 'in-progress').length;
+    const resolved = complaints.filter(c => c.status === 'resolved').length;
+    const highSeverity = complaints.filter(c => c.severity === 'high' || c.severity === 'critical').length;
+    const escalated = complaints.filter(c => c.isEscalated).length;
+    
+    // Group by source
+    const sourceMap: Record<string, number> = {};
+    complaints.forEach(c => {
+      sourceMap[c.source] = (sourceMap[c.source] || 0) + 1;
+    });
+    const sources = Object.entries(sourceMap).map(([source, count]) => ({ source, count }));
+
+    // Group by severity
+    const severityMap: Record<string, number> = { low: 0, medium: 0, high: 0, critical: 0 };
+    complaints.forEach(c => {
+      severityMap[c.severity] = (severityMap[c.severity] || 0) + 1;
+    });
+    const severities = Object.entries(severityMap).map(([severity, count]) => ({ severity, count }));
+
+    // Group by status for bar chart
+    const statusMap: Record<string, any> = {};
+    complaints.forEach(c => {
+      if (!statusMap[c.category]) {
+        statusMap[c.category] = { category: c.category, open: 0, pending: 0, resolved: 0 };
+      }
+      if (c.status === 'unresolved') statusMap[c.category].open++;
+      else if (c.status === 'in-progress') statusMap[c.category].pending++;
+      else if (c.status === 'resolved') statusMap[c.category].resolved++;
+    });
+    const statusDistribution = Object.values(statusMap);
+
+    // Trend data (last 7 days)
+    const trendMap: Record<string, number> = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      trendMap[dateStr] = 0;
+    }
+    complaints.forEach(c => {
+      const dateStr = c.createdAt.split('T')[0];
+      if (trendMap[dateStr] !== undefined) {
+        trendMap[dateStr]++;
+      }
+    });
+    const trend = Object.entries(trendMap).map(([date, count]) => ({ date, count }));
+
+    return {
+      total,
+      open,
+      pending: inProgress,
+      resolved,
+      highSeverity,
+      escalated,
+      sources,
+      severities,
+      statusDistribution,
+      trend,
+      slaCompliance: total > 0 ? Math.round(((resolved + inProgress) / total) * 100) : 100
+    };
+  }, [complaints]);
+
   const kpis = [
-    { label: 'Total Complaints', value: dashboardStats.total, change: dashboardStats.changes.total, icon: Inbox, color: 'blue' },
-    { label: 'Open Complaints', value: dashboardStats.open, change: dashboardStats.changes.open, icon: AlertCircle, color: 'rose' },
-    { label: 'Resolved', value: dashboardStats.resolved, change: dashboardStats.changes.resolved, icon: CheckCircle2, color: 'emerald' },
-    { label: 'Pending', value: dashboardStats.pending, change: dashboardStats.changes.pending, icon: Clock, color: 'amber' },
-    { label: 'Avg Resolution Time', value: dashboardStats.avgResolutionTime, change: dashboardStats.changes.avgResolutionTime, icon: Zap, color: 'violet', isTime: true },
-    { label: 'SLA Compliance', value: `${dashboardStats.slaComplianceRate}%`, change: dashboardStats.changes.slaComplianceRate, icon: ShieldAlert, color: 'emerald' },
-    { label: 'Escalated', value: dashboardStats.escalated, change: dashboardStats.changes.escalated, icon: AlertTriangle, color: 'rose' },
-    { label: 'High Severity', value: dashboardStats.highSeverity, change: dashboardStats.changes.highSeverity, icon: ShieldAlert, color: 'orange' },
-    { label: 'CSAT Score', value: dashboardStats.csat, change: dashboardStats.changes.csat, icon: Star, color: 'yellow' },
+    { label: 'Total Complaints', value: stats.total, change: 12, icon: Inbox, color: 'blue' },
+    { label: 'Open Complaints', value: stats.open, change: -5, icon: AlertCircle, color: 'rose' },
+    { label: 'Resolved', value: stats.resolved, change: 8, icon: CheckCircle2, color: 'emerald' },
+    { label: 'Pending', value: stats.pending, change: 2, icon: Clock, color: 'amber' },
+    { label: 'Avg Resolution Time', value: '1.2h', change: -15, icon: Zap, color: 'violet', isTime: true },
+    { label: 'SLA Compliance', value: `${stats.slaCompliance}%`, change: 3, icon: ShieldAlert, color: 'emerald' },
+    { label: 'Escalated', value: stats.escalated, change: 0, icon: AlertTriangle, color: 'rose' },
+    { label: 'High Severity', value: stats.highSeverity, change: -10, icon: ShieldAlert, color: 'orange' },
+    { label: 'CSAT Score', value: 4.2, change: 5, icon: Star, color: 'yellow' },
   ];
 
   const insights = [
@@ -126,7 +185,10 @@ export default function Dashboard() {
             <Filter className="w-4 h-4" />
             Filters
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold text-sm transition-all">
+          <button 
+            onClick={() => window.open('/api/export', '_blank')}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-xl font-bold text-sm transition-all"
+          >
             <Download className="w-4 h-4" />
             Export
           </button>
@@ -289,7 +351,7 @@ export default function Dashboard() {
           </div>
           <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={stats.trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -391,7 +453,7 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={sourceStats}
+                  data={stats.sources}
                   cx="50%"
                   cy="50%"
                   innerRadius={70}
@@ -403,7 +465,7 @@ export default function Dashboard() {
                   animationBegin={0}
                   animationDuration={1500}
                 >
-                  {sourceStats.map((entry, index) => (
+                  {stats.sources.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -422,7 +484,7 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none -mt-6">
-              <div className="text-3xl font-bold text-zinc-100">{sourceStats.reduce((acc, curr) => acc + curr.count, 0)}</div>
+              <div className="text-3xl font-bold text-zinc-100">{stats.sources.reduce((acc, curr) => acc + curr.count, 0)}</div>
               <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-black">Total</div>
             </div>
           </div>
@@ -436,7 +498,7 @@ export default function Dashboard() {
           </div>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statusDistributionData} layout="vertical" margin={{ left: -20 }}>
+              <BarChart data={stats.statusDistribution} layout="vertical" margin={{ left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} opacity={0.3} />
                 <XAxis type="number" stroke="#52525b" fontSize={10} hide />
                 <YAxis dataKey="category" type="category" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} width={100} />
@@ -480,25 +542,25 @@ export default function Dashboard() {
                 <circle 
                   className="stroke-[url(#slaGradient)] drop-shadow-[0_0_8px_rgba(16,185,129,0.4)]" 
                   strokeWidth="10" 
-                  strokeDasharray={`${dashboardStats.slaComplianceRate * 2.51}, 251.2`}
+                  strokeDasharray={`${stats.slaCompliance * 2.51}, 251.2`}
                   strokeLinecap="round" 
                   cx="50" cy="50" r="40" fill="transparent"
                   transform="rotate(-90 50 50)"
                 ></circle>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-4xl font-black text-zinc-100 tabular-nums">{dashboardStats.slaComplianceRate}%</span>
+                <span className="text-4xl font-black text-zinc-100 tabular-nums">{stats.slaCompliance}%</span>
                 <span className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mt-1">Compliance</span>
               </div>
             </div>
             <div className="flex gap-12">
               <div className="text-center space-y-1">
                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Within SLA</p>
-                <p className="text-2xl font-bold text-emerald-500 tabular-nums">117</p>
+                <p className="text-2xl font-bold text-emerald-500 tabular-nums">{stats.resolved + stats.pending}</p>
               </div>
               <div className="text-center space-y-1">
                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Breached</p>
-                <p className="text-2xl font-bold text-rose-500 tabular-nums">7</p>
+                <p className="text-2xl font-bold text-rose-500 tabular-nums">{stats.open}</p>
               </div>
             </div>
           </div>
@@ -512,7 +574,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-bold text-zinc-100 mb-8">Severity Profile</h3>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={severityBreakdownData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={stats.severities} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} opacity={0.3} />
                 <XAxis dataKey="severity" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} dy={10} />
                 <YAxis stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} dx={-10} />
@@ -521,7 +583,7 @@ export default function Dashboard() {
                   contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '12px' }}
                 />
                 <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={40}>
-                  {severityBreakdownData.map((entry, index) => (
+                  {stats.severities.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={SEVERITY_COLORS[entry.severity]} />
                   ))}
                 </Bar>
@@ -538,7 +600,7 @@ export default function Dashboard() {
           </div>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={agentPerformanceData} layout="vertical" margin={{ left: -20 }}>
+              <BarChart data={[]} layout="vertical" margin={{ left: -20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" horizontal={false} opacity={0.3} />
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} width={80} />
@@ -551,6 +613,9 @@ export default function Dashboard() {
                 <Bar dataKey="efficiency" fill="#10b981" radius={[0, 6, 6, 0]} barSize={12} />
               </BarChart>
             </ResponsiveContainer>
+            <div className="flex items-center justify-center h-full -mt-20 text-zinc-500 text-xs">
+              Insufficient agent data
+            </div>
           </div>
         </div>
 
@@ -559,7 +624,7 @@ export default function Dashboard() {
           <h3 className="text-lg font-bold text-zinc-100 mb-8">Escalation Velocity</h3>
           <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={escalationTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <LineChart data={stats.trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} opacity={0.3} />
                 <XAxis 
                   dataKey="date" 
@@ -593,16 +658,16 @@ export default function Dashboard() {
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
         <h3 className="text-lg font-bold mb-6">Root Cause Analysis</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {rootCauseData.map((item, idx) => (
-            <div key={item.name} className="space-y-3">
+          {stats.statusDistribution.map((item, idx) => (
+            <div key={item.category} className="space-y-3">
               <div className="flex justify-between items-end">
-                <span className="text-sm font-bold text-zinc-300">{item.name}</span>
-                <span className="text-xs text-zinc-500">{item.value}%</span>
+                <span className="text-sm font-bold text-zinc-300">{item.category}</span>
+                <span className="text-xs text-zinc-500">{Math.round((item.resolved / (item.open + item.pending + item.resolved || 1)) * 100)}% Resolved</span>
               </div>
               <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
-                  animate={{ width: `${item.value}%` }}
+                  animate={{ width: `${(item.resolved / (item.open + item.pending + item.resolved || 1)) * 100}%` }}
                   transition={{ duration: 1, delay: idx * 0.1 }}
                   className="h-full bg-emerald-500"
                 />

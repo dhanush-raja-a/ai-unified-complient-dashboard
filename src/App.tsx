@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar, { ViewState } from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import ComplaintDetails from './components/ComplaintDetails';
@@ -15,19 +15,67 @@ import RegulatoryReports from './components/RegulatoryReports';
 import EscalationQueue from './components/EscalationQueue';
 import Chatbot from './components/Chatbot';
 import ManualEntryModal from './components/ManualEntryModal';
-import { mockComplaints, mockGroups, mockClusters, mockReports, mockEscalations, trendData } from './mockData';
+import { mockReports } from './mockData';
 import { Complaint, ComplaintGroup, Message, DedupCluster as DedupClusterType, RegulatoryReport, EscalationItem } from './types';
 
 export default function App() {
-  const [complaints, setComplaints] = useState<Complaint[]>(mockComplaints);
-  const [groups, setGroups] = useState<ComplaintGroup[]>(mockGroups);
-  const [clusters] = useState<DedupClusterType[]>(mockClusters);
-  const [reports] = useState<RegulatoryReport[]>(mockReports);
-  const [escalations] = useState<EscalationItem[]>(mockEscalations);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   const [selectedComplaintId, setSelectedComplaintId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>('overview');
   const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+
+  const groups = useMemo<ComplaintGroup[]>(() => {
+    const categories = Array.from(new Set(complaints.map(c => c.category || 'Uncategorized')));
+    return categories.map((cat: string, idx: number) => ({
+      id: `GRP-${idx + 1}`,
+      name: `${cat} Issues Group`,
+      description: `Automatically grouped complaints related to ${cat.toLowerCase()} problems.`,
+      category: cat,
+      complaintIds: complaints.filter(c => c.category === cat).map(c => c.id),
+      suggestedResponse: `We are currently experiencing a high volume of ${cat.toLowerCase()} related issues. Our team is working on a fix and will update you shortly.`
+    }));
+  }, [complaints]);
+
+  const clusters = useMemo<DedupClusterType[]>(() => {
+    // Basic clustering by subject first word
+    const subjects = complaints.map(c => (c.subject || '').split(' ')[0]);
+    const uniqueSubjects = Array.from(new Set(subjects)).filter((s: string) => s.length > 3);
+    return uniqueSubjects.map((sub: string, idx: number) => {
+      const related = complaints.filter(c => (c.subject || '').startsWith(sub));
+      return {
+        id: `CLS-${idx + 1}`,
+        name: `${sub} Related Cluster`,
+        complaintCount: related.length,
+        similarityScore: 0.85 + Math.random() * 0.1,
+        complaintIds: related.map(c => c.id),
+        summary: `AI identified ${related.length} complaints with similar subject patterns related to "${sub}".`
+      };
+    }).filter(c => c.complaintCount > 1);
+  }, [complaints]);
+
+  const escalationCount = useMemo(() => {
+    return complaints.filter(c => c.isEscalated && c.status !== 'resolved').length;
+  }, [complaints]);
+
+  const fetchComplaints = async () => {
+    try {
+      const response = await fetch('/api/complaints');
+      if (response.ok) {
+        const data = await response.json();
+        setComplaints(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch complaints:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchComplaints();
+  }, []);
 
   const selectedComplaint = complaints.find(c => c.id === selectedComplaintId);
 
@@ -43,16 +91,45 @@ export default function App() {
     }
   };
 
-  const handleUpdateStatus = (id: string, status: Complaint['status']) => {
-    setComplaints(prev => prev.map(c => 
-      c.id === id ? { ...c, status } : c
-    ));
+  const handleUpdateStatus = async (id: string, status: Complaint['status']) => {
+    try {
+      const response = await fetch(`/api/complaints/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (response.ok) {
+        setComplaints(prev => prev.map(c => 
+          c.id === id ? { ...c, status } : c
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to update status:', error);
+    }
   };
 
-  const handleAddMessage = (id: string, message: Message) => {
+  const handleAddMessage = async (id: string, message: Message) => {
+    try {
+      const response = await fetch(`/api/complaints/${id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      if (response.ok) {
+        setComplaints(prev => prev.map(c => 
+          c.id === id ? { ...c, messages: [...c.messages, message] } : c
+        ));
+      }
+    } catch (error) {
+      console.error('Failed to add message:', error);
+    }
+  };
+
+  const handleEscalate = (id: string, reason: string) => {
     setComplaints(prev => prev.map(c => 
-      c.id === id ? { ...c, messages: [...c.messages, message] } : c
+      c.id === id ? { ...c, isEscalated: true, escalationReason: reason } : c
     ));
+    setCurrentView('escalation');
   };
 
   const handleManualEntrySubmit = (data: Partial<Complaint>) => {
@@ -89,27 +166,29 @@ export default function App() {
       <Sidebar 
         complaintCount={complaints.length}
         groupCount={clusters.length}
+        escalationCount={escalationCount}
         onViewChange={handleViewChange}
         onManualEntry={() => setIsManualEntryOpen(true)}
         currentView={currentView}
       />
       
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        {currentView === 'overview' && <Dashboard />}
+        {currentView === 'overview' && <Dashboard complaints={complaints} />}
         
         {currentView === 'inbox' && (
           <ComplaintList 
             complaints={complaints} 
             onSelectComplaint={handleSelectComplaint} 
+            onRefresh={fetchComplaints}
           />
         )}
 
         {currentView === 'trend' && (
-          <TrendAnalysis trendData={trendData} />
+          <TrendAnalysis complaints={complaints} />
         )}
 
         {currentView === 'dedup' && (
-          <DedupCluster clusters={clusters} />
+          <DedupCluster complaints={complaints} clusters={clusters} />
         )}
 
         {currentView === 'grouped' && (
@@ -122,11 +201,15 @@ export default function App() {
         )}
 
         {currentView === 'reports' && (
-          <RegulatoryReports reports={reports} />
+          <RegulatoryReports complaints={complaints} />
         )}
 
         {currentView === 'escalation' && (
-          <EscalationQueue escalations={escalations} />
+          <EscalationQueue 
+            complaints={complaints} 
+            onSelectComplaint={handleSelectComplaint}
+            onUpdateStatus={handleUpdateStatus}
+          />
         )}
         
         {currentView === 'details' && selectedComplaint && (
@@ -135,6 +218,7 @@ export default function App() {
             onBack={() => handleViewChange('inbox')}
             onUpdateStatus={handleUpdateStatus}
             onAddMessage={handleAddMessage}
+            onEscalate={handleEscalate}
           />
         )}
 
