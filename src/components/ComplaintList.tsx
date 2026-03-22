@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   XCircle,
   FileSpreadsheet,
-  Upload,
   Download,
   Database
 } from 'lucide-react';
@@ -28,37 +27,6 @@ interface ComplaintListProps {
 
 export default function ComplaintList({ complaints, onSelectComplaint, onRefresh }: ComplaintListProps & { onRefresh?: () => void }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const response = await fetch('/api/upload-excel', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (response.ok) {
-        alert('Excel uploaded successfully!');
-        if (onRefresh) onRefresh();
-      } else {
-        alert('Failed to upload Excel.');
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Error uploading file.');
-    } finally {
-      setIsUploading(false);
-      // Reset input
-      event.target.value = '';
-    }
-  };
 
   const downloadTemplate = () => {
     const headers = ['ID', 'Customer Name', 'Subject', 'Description', 'Status', 'Severity', 'Priority', 'Source', 'Category'];
@@ -147,27 +115,6 @@ export default function ComplaintList({ complaints, onSelectComplaint, onRefresh
               <Database className="w-3.5 h-3.5" />
               Seed 50 More
             </button>
-            <button 
-              onClick={downloadTemplate}
-              className="flex items-center gap-2 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-400 hover:text-zinc-100 hover:border-zinc-700 transition-all"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Template
-            </button>
-            <label className={cn(
-              "flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-xl text-xs font-bold cursor-pointer hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20",
-              isUploading && "opacity-50 cursor-not-allowed"
-            )}>
-              <Upload className="w-3.5 h-3.5" />
-              {isUploading ? 'Uploading...' : 'Upload Excel'}
-              <input 
-                type="file" 
-                accept=".xlsx, .xls" 
-                className="hidden" 
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-            </label>
             <div className="w-px h-8 bg-zinc-800 mx-2" />
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
