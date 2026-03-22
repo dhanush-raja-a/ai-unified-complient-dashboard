@@ -5,9 +5,36 @@
 
 import { Complaint, ComplaintGroup, DashboardStats, SourceStats, TrendData, DedupCluster, RegulatoryReport, EscalationItem } from './types';
 
+const generateComplaint = (id: number, data: Partial<Complaint>): Complaint => {
+  const baseDate = new Date('2026-03-22T00:00:00Z');
+  const hoursAgo = Math.floor(Math.random() * 168); // Random time within last 7 days
+  const createdAt = new Date(baseDate.getTime() - hoursAgo * 60 * 60 * 1000).toISOString();
+  const slaHours = data.severity === 'critical' ? 4 : data.severity === 'high' ? 24 : data.severity === 'medium' ? 48 : 72;
+  const slaDeadline = new Date(new Date(createdAt).getTime() + slaHours * 60 * 60 * 1000).toISOString();
+  
+  return {
+    id: `CMP-${String(id).padStart(3, '0')}`,
+    customerName: data.customerName || 'Customer',
+    subject: data.subject || 'Issue',
+    description: data.description || 'Description',
+    status: data.status || 'unresolved',
+    severity: data.severity || 'medium',
+    priority: data.priority || 'P2',
+    source: data.source || 'Gmail',
+    category: data.category || 'General',
+    sentiment: data.sentiment || 'neutral',
+    createdAt,
+    slaDeadline,
+    tags: data.tags || [],
+    groupId: data.groupId,
+    messages: data.messages || [
+      { id: `m-${id}`, sender: 'customer', text: data.description || 'Issue description', timestamp: createdAt }
+    ]
+  };
+};
+
 export const mockComplaints: Complaint[] = [
-  {
-    id: 'CMP-001',
+  generateComplaint(1, {
     customerName: 'John Doe',
     subject: 'App crashes on login',
     description: 'The app crashes every time I try to log in with my Google account.',
@@ -17,16 +44,10 @@ export const mockComplaints: Complaint[] = [
     source: 'Gmail',
     category: 'App Crash',
     sentiment: 'frustrated',
-    createdAt: '2026-03-21T10:00:00Z',
-    slaDeadline: '2026-03-21T14:00:00Z',
     tags: ['login', 'google-auth', 'crash'],
-    groupId: 'GRP-001',
-    messages: [
-      { id: 'm1', sender: 'customer', text: 'The app crashes every time I try to log in with my Google account.', timestamp: '2026-03-21T10:00:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-002',
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(2, {
     customerName: 'Jane Smith',
     subject: 'Billing discrepancy',
     description: 'I was charged twice for my subscription this month.',
@@ -36,16 +57,9 @@ export const mockComplaints: Complaint[] = [
     source: 'WhatsApp',
     category: 'Billing',
     sentiment: 'negative',
-    createdAt: '2026-03-21T11:30:00Z',
-    slaDeadline: '2026-03-22T11:30:00Z',
-    tags: ['billing', 'double-charge'],
-    messages: [
-      { id: 'm2', sender: 'customer', text: 'I was charged twice for my subscription this month.', timestamp: '2026-03-21T11:30:00Z' },
-      { id: 'm3', sender: 'agent', text: 'Hello Jane, I am looking into this for you. Could you provide the transaction ID?', timestamp: '2026-03-21T12:00:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-003',
+    tags: ['billing', 'double-charge']
+  }),
+  generateComplaint(3, {
     customerName: 'Alice Brown',
     subject: 'Slow internet connection',
     description: 'My internet has been very slow for the past two days.',
@@ -55,17 +69,9 @@ export const mockComplaints: Complaint[] = [
     source: 'Twitter',
     category: 'Internet',
     sentiment: 'neutral',
-    createdAt: '2026-03-20T09:00:00Z',
-    slaDeadline: '2026-03-21T09:00:00Z',
-    tags: ['internet', 'speed'],
-    messages: [
-      { id: 'm4', sender: 'customer', text: 'My internet has been very slow for the past two days.', timestamp: '2026-03-20T09:00:00Z' },
-      { id: 'm5', sender: 'agent', text: 'We have reset your connection. Please check now.', timestamp: '2026-03-20T10:00:00Z' },
-      { id: 'm6', sender: 'customer', text: 'It works now, thanks!', timestamp: '2026-03-20T10:30:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-004',
+    tags: ['internet', 'speed']
+  }),
+  generateComplaint(4, {
     customerName: 'Bob Wilson',
     subject: 'Cannot access technical documentation',
     description: 'The link to the technical documentation is broken.',
@@ -75,15 +81,9 @@ export const mockComplaints: Complaint[] = [
     source: 'Facebook',
     category: 'Technical',
     sentiment: 'neutral',
-    createdAt: '2026-03-22T08:00:00Z',
-    slaDeadline: '2026-03-23T08:00:00Z',
-    tags: ['documentation', 'link-broken'],
-    messages: [
-      { id: 'm7', sender: 'customer', text: 'The link to the technical documentation is broken.', timestamp: '2026-03-22T08:00:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-005',
+    tags: ['documentation', 'link-broken']
+  }),
+  generateComplaint(5, {
     customerName: 'Charlie Davis',
     subject: 'App crash on startup',
     description: 'App crashes immediately after opening.',
@@ -93,16 +93,10 @@ export const mockComplaints: Complaint[] = [
     source: 'Gmail',
     category: 'App Crash',
     sentiment: 'frustrated',
-    createdAt: '2026-03-22T09:00:00Z',
-    slaDeadline: '2026-03-22T13:00:00Z',
     tags: ['crash', 'startup'],
-    groupId: 'GRP-001',
-    messages: [
-      { id: 'm8', sender: 'customer', text: 'App crashes immediately after opening.', timestamp: '2026-03-22T09:00:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-006',
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(6, {
     customerName: 'David Miller',
     subject: 'Login failed multiple times',
     description: 'I am unable to login, it says invalid credentials even though they are correct.',
@@ -112,16 +106,10 @@ export const mockComplaints: Complaint[] = [
     source: 'WhatsApp',
     category: 'App Crash',
     sentiment: 'frustrated',
-    createdAt: '2026-03-22T10:15:00Z',
-    slaDeadline: '2026-03-22T14:15:00Z',
     tags: ['login', 'credentials'],
-    groupId: 'GRP-001',
-    messages: [
-      { id: 'm9', sender: 'customer', text: 'I am unable to login, it says invalid credentials even though they are correct.', timestamp: '2026-03-22T10:15:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-007',
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(7, {
     customerName: 'Eve Thompson',
     subject: 'Double charge on my card',
     description: 'I see two charges for the same transaction on my credit card statement.',
@@ -131,15 +119,9 @@ export const mockComplaints: Complaint[] = [
     source: 'Gmail',
     category: 'Billing',
     sentiment: 'negative',
-    createdAt: '2026-03-22T11:00:00Z',
-    slaDeadline: '2026-03-23T11:00:00Z',
-    tags: ['billing', 'double-charge'],
-    messages: [
-      { id: 'm10', sender: 'customer', text: 'I see two charges for the same transaction on my credit card statement.', timestamp: '2026-03-22T11:00:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-008',
+    tags: ['billing', 'double-charge']
+  }),
+  generateComplaint(8, {
     customerName: 'Frank Harris',
     subject: 'Internet speed is very low',
     description: 'Getting only 2Mbps on a 100Mbps plan.',
@@ -149,15 +131,9 @@ export const mockComplaints: Complaint[] = [
     source: 'Phone',
     category: 'Internet',
     sentiment: 'frustrated',
-    createdAt: '2026-03-22T11:30:00Z',
-    slaDeadline: '2026-03-23T11:30:00Z',
-    tags: ['internet', 'speed'],
-    messages: [
-      { id: 'm11', sender: 'customer', text: 'Getting only 2Mbps on a 100Mbps plan.', timestamp: '2026-03-22T11:30:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-009',
+    tags: ['internet', 'speed']
+  }),
+  generateComplaint(9, {
     customerName: 'Grace Lee',
     subject: 'Refund not received',
     description: 'It has been 10 days since the refund was initiated, but I haven\'t received it.',
@@ -167,15 +143,9 @@ export const mockComplaints: Complaint[] = [
     source: 'Chat',
     category: 'Billing',
     sentiment: 'negative',
-    createdAt: '2026-03-22T12:00:00Z',
-    slaDeadline: '2026-03-23T12:00:00Z',
-    tags: ['billing', 'refund'],
-    messages: [
-      { id: 'm12', sender: 'customer', text: 'It has been 10 days since the refund was initiated, but I haven\'t received it.', timestamp: '2026-03-22T12:00:00Z' }
-    ]
-  },
-  {
-    id: 'CMP-010',
+    tags: ['billing', 'refund']
+  }),
+  generateComplaint(10, {
     customerName: 'Henry Clark',
     subject: 'App keeps closing',
     description: 'The app closes automatically after 5 seconds of use.',
@@ -185,14 +155,497 @@ export const mockComplaints: Complaint[] = [
     source: 'Twitter',
     category: 'App Crash',
     sentiment: 'frustrated',
-    createdAt: '2026-03-22T12:30:00Z',
-    slaDeadline: '2026-03-22T16:30:00Z',
     tags: ['crash', 'stability'],
-    groupId: 'GRP-001',
-    messages: [
-      { id: 'm13', sender: 'customer', text: 'The app closes automatically after 5 seconds of use.', timestamp: '2026-03-22T12:30:00Z' }
-    ]
-  }
+    groupId: 'GRP-001'
+  }),
+  // Additional 40 complaints
+  generateComplaint(11, {
+    customerName: 'Isabella Martinez',
+    subject: 'Payment gateway timeout',
+    description: 'Payment keeps timing out during checkout process.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'WhatsApp',
+    category: 'Billing',
+    sentiment: 'frustrated',
+    tags: ['payment', 'timeout']
+  }),
+  generateComplaint(12, {
+    customerName: 'James Anderson',
+    subject: 'Network disconnection',
+    description: 'Internet disconnects every 30 minutes.',
+    status: 'in-progress',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Phone',
+    category: 'Internet',
+    sentiment: 'negative',
+    tags: ['network', 'disconnection']
+  }),
+  generateComplaint(13, {
+    customerName: 'Sophia Taylor',
+    subject: 'Feature not working',
+    description: 'The export feature is not responding.',
+    status: 'resolved',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'Gmail',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['feature', 'export']
+  }),
+  generateComplaint(14, {
+    customerName: 'Liam Thomas',
+    subject: 'Account suspended',
+    description: 'My account was suspended without any notification.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Twitter',
+    category: 'Technical',
+    sentiment: 'frustrated',
+    tags: ['account', 'suspension']
+  }),
+  generateComplaint(15, {
+    customerName: 'Olivia Jackson',
+    subject: 'Incorrect invoice',
+    description: 'Invoice shows wrong amount for last month.',
+    status: 'in-progress',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'Facebook',
+    category: 'Billing',
+    sentiment: 'negative',
+    tags: ['invoice', 'billing']
+  }),
+  generateComplaint(16, {
+    customerName: 'Noah White',
+    subject: 'App freezes',
+    description: 'App freezes when uploading files.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Gmail',
+    category: 'App Crash',
+    sentiment: 'frustrated',
+    tags: ['freeze', 'upload'],
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(17, {
+    customerName: 'Emma Harris',
+    subject: 'Slow loading times',
+    description: 'Pages take forever to load.',
+    status: 'resolved',
+    severity: 'low',
+    priority: 'P3',
+    source: 'Chat',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['performance', 'loading']
+  }),
+  generateComplaint(18, {
+    customerName: 'William Martin',
+    subject: 'Data sync issue',
+    description: 'My data is not syncing across devices.',
+    status: 'unresolved',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'WhatsApp',
+    category: 'Technical',
+    sentiment: 'negative',
+    tags: ['sync', 'data']
+  }),
+  generateComplaint(19, {
+    customerName: 'Ava Thompson',
+    subject: 'Subscription not activated',
+    description: 'Paid for premium but still showing free account.',
+    status: 'in-progress',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Gmail',
+    category: 'Billing',
+    sentiment: 'frustrated',
+    tags: ['subscription', 'activation']
+  }),
+  generateComplaint(20, {
+    customerName: 'Benjamin Garcia',
+    subject: 'Connection drops',
+    description: 'WiFi connection drops randomly throughout the day.',
+    status: 'unresolved',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'Phone',
+    category: 'Internet',
+    sentiment: 'negative',
+    tags: ['wifi', 'connection']
+  }),
+  generateComplaint(21, {
+    customerName: 'Mia Rodriguez',
+    subject: 'Error message on login',
+    description: 'Getting "Server Error 500" when trying to log in.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Twitter',
+    category: 'App Crash',
+    sentiment: 'frustrated',
+    tags: ['error', 'login'],
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(22, {
+    customerName: 'Lucas Martinez',
+    subject: 'Missing features',
+    description: 'Features mentioned in the plan are not available.',
+    status: 'resolved',
+    severity: 'low',
+    priority: 'P3',
+    source: 'Facebook',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['features', 'missing']
+  }),
+  generateComplaint(23, {
+    customerName: 'Charlotte Lee',
+    subject: 'Overcharged',
+    description: 'Was charged $99 instead of $49.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Gmail',
+    category: 'Billing',
+    sentiment: 'negative',
+    tags: ['overcharge', 'billing']
+  }),
+  generateComplaint(24, {
+    customerName: 'Ethan Walker',
+    subject: 'Bandwidth throttling',
+    description: 'Internet speed is being throttled during peak hours.',
+    status: 'in-progress',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'WhatsApp',
+    category: 'Internet',
+    sentiment: 'frustrated',
+    tags: ['throttling', 'bandwidth']
+  }),
+  generateComplaint(25, {
+    customerName: 'Amelia Hall',
+    subject: 'Cannot reset password',
+    description: 'Password reset link is not working.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Chat',
+    category: 'Technical',
+    sentiment: 'frustrated',
+    tags: ['password', 'reset']
+  }),
+  generateComplaint(26, {
+    customerName: 'Alexander Allen',
+    subject: 'App not responding',
+    description: 'App becomes unresponsive after 10 minutes of use.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Gmail',
+    category: 'App Crash',
+    sentiment: 'frustrated',
+    tags: ['unresponsive', 'crash'],
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(27, {
+    customerName: 'Harper Young',
+    subject: 'UI glitches',
+    description: 'Interface elements are overlapping and unreadable.',
+    status: 'resolved',
+    severity: 'low',
+    priority: 'P3',
+    source: 'Twitter',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['ui', 'glitch']
+  }),
+  generateComplaint(28, {
+    customerName: 'Daniel King',
+    subject: 'Unauthorized charge',
+    description: 'There is a charge I did not authorize on my account.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Phone',
+    category: 'Billing',
+    sentiment: 'frustrated',
+    tags: ['unauthorized', 'charge']
+  }),
+  generateComplaint(29, {
+    customerName: 'Evelyn Wright',
+    subject: 'Latency issues',
+    description: 'Experiencing high latency during video calls.',
+    status: 'in-progress',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'WhatsApp',
+    category: 'Internet',
+    sentiment: 'negative',
+    tags: ['latency', 'video']
+  }),
+  generateComplaint(30, {
+    customerName: 'Matthew Lopez',
+    subject: 'Data loss',
+    description: 'Lost all my saved data after the last update.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Gmail',
+    category: 'Technical',
+    sentiment: 'frustrated',
+    tags: ['data-loss', 'update']
+  }),
+  generateComplaint(31, {
+    customerName: 'Abigail Hill',
+    subject: 'Notification not working',
+    description: 'Not receiving any push notifications.',
+    status: 'resolved',
+    severity: 'low',
+    priority: 'P3',
+    source: 'Facebook',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['notification', 'push']
+  }),
+  generateComplaint(32, {
+    customerName: 'Joseph Scott',
+    subject: 'Refund delay',
+    description: 'Refund was promised in 5 days but it has been 2 weeks.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Twitter',
+    category: 'Billing',
+    sentiment: 'negative',
+    tags: ['refund', 'delay']
+  }),
+  generateComplaint(33, {
+    customerName: 'Emily Green',
+    subject: 'Router issues',
+    description: 'Router keeps restarting on its own.',
+    status: 'in-progress',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Phone',
+    category: 'Internet',
+    sentiment: 'frustrated',
+    tags: ['router', 'restart']
+  }),
+  generateComplaint(34, {
+    customerName: 'Michael Adams',
+    subject: 'App crashes on Android',
+    description: 'App crashes specifically on Android 14 devices.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Gmail',
+    category: 'App Crash',
+    sentiment: 'frustrated',
+    tags: ['android', 'crash'],
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(35, {
+    customerName: 'Elizabeth Baker',
+    subject: 'Search not working',
+    description: 'Search function returns no results.',
+    status: 'resolved',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'Chat',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['search', 'function']
+  }),
+  generateComplaint(36, {
+    customerName: 'David Nelson',
+    subject: 'Wrong plan charged',
+    description: 'Being charged for enterprise plan but signed up for basic.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'WhatsApp',
+    category: 'Billing',
+    sentiment: 'negative',
+    tags: ['plan', 'wrong-charge']
+  }),
+  generateComplaint(37, {
+    customerName: 'Sofia Carter',
+    subject: 'Packet loss',
+    description: 'Experiencing 30% packet loss during gaming.',
+    status: 'in-progress',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'Twitter',
+    category: 'Internet',
+    sentiment: 'frustrated',
+    tags: ['packet-loss', 'gaming']
+  }),
+  generateComplaint(38, {
+    customerName: 'James Mitchell',
+    subject: 'Cannot upload files',
+    description: 'File upload fails with error code 403.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Gmail',
+    category: 'Technical',
+    sentiment: 'frustrated',
+    tags: ['upload', 'error']
+  }),
+  generateComplaint(39, {
+    customerName: 'Aria Perez',
+    subject: 'Memory leak',
+    description: 'App consumes all device memory and slows down phone.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Facebook',
+    category: 'App Crash',
+    sentiment: 'frustrated',
+    tags: ['memory', 'leak'],
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(40, {
+    customerName: 'Jackson Roberts',
+    subject: 'Dark mode broken',
+    description: 'Dark mode makes text unreadable.',
+    status: 'resolved',
+    severity: 'low',
+    priority: 'P3',
+    source: 'Chat',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['dark-mode', 'ui']
+  }),
+  generateComplaint(41, {
+    customerName: 'Scarlett Turner',
+    subject: 'Duplicate transactions',
+    description: 'Same transaction appears twice in my statement.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Phone',
+    category: 'Billing',
+    sentiment: 'negative',
+    tags: ['duplicate', 'transaction']
+  }),
+  generateComplaint(42, {
+    customerName: 'Sebastian Phillips',
+    subject: 'DNS resolution failure',
+    description: 'Cannot access certain websites due to DNS issues.',
+    status: 'in-progress',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'WhatsApp',
+    category: 'Internet',
+    sentiment: 'negative',
+    tags: ['dns', 'resolution']
+  }),
+  generateComplaint(43, {
+    customerName: 'Victoria Campbell',
+    subject: 'API timeout',
+    description: 'API calls are timing out after 30 seconds.',
+    status: 'unresolved',
+    severity: 'high',
+    priority: 'P1',
+    source: 'Gmail',
+    category: 'Technical',
+    sentiment: 'frustrated',
+    tags: ['api', 'timeout']
+  }),
+  generateComplaint(44, {
+    customerName: 'Jack Parker',
+    subject: 'App crashes on iOS',
+    description: 'App crashes on iPhone 15 Pro Max.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Twitter',
+    category: 'App Crash',
+    sentiment: 'frustrated',
+    tags: ['ios', 'crash'],
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(45, {
+    customerName: 'Luna Evans',
+    subject: 'Settings not saving',
+    description: 'App settings reset every time I close the app.',
+    status: 'resolved',
+    severity: 'low',
+    priority: 'P3',
+    source: 'Facebook',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['settings', 'save']
+  }),
+  generateComplaint(46, {
+    customerName: 'Owen Edwards',
+    subject: 'Promo code not working',
+    description: 'Discount code shows as invalid.',
+    status: 'unresolved',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'Chat',
+    category: 'Billing',
+    sentiment: 'negative',
+    tags: ['promo', 'discount']
+  }),
+  generateComplaint(47, {
+    customerName: 'Chloe Collins',
+    subject: 'Upload speed too slow',
+    description: 'Upload speed is only 1Mbps on 50Mbps plan.',
+    status: 'in-progress',
+    severity: 'medium',
+    priority: 'P2',
+    source: 'Phone',
+    category: 'Internet',
+    sentiment: 'frustrated',
+    tags: ['upload', 'speed']
+  }),
+  generateComplaint(48, {
+    customerName: 'Ryan Stewart',
+    subject: 'Database connection error',
+    description: 'Getting "Cannot connect to database" error.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'Gmail',
+    category: 'Technical',
+    sentiment: 'frustrated',
+    tags: ['database', 'connection']
+  }),
+  generateComplaint(49, {
+    customerName: 'Zoe Morris',
+    subject: 'Blank screen on launch',
+    description: 'App shows blank white screen after splash screen.',
+    status: 'unresolved',
+    severity: 'critical',
+    priority: 'P0',
+    source: 'WhatsApp',
+    category: 'App Crash',
+    sentiment: 'frustrated',
+    tags: ['blank', 'screen'],
+    groupId: 'GRP-001'
+  }),
+  generateComplaint(50, {
+    customerName: 'Caleb Rogers',
+    subject: 'Email notifications spam',
+    description: 'Receiving hundreds of duplicate email notifications.',
+    status: 'resolved',
+    severity: 'low',
+    priority: 'P3',
+    source: 'Twitter',
+    category: 'Technical',
+    sentiment: 'neutral',
+    tags: ['email', 'spam']
+  })
 ];
 
 export const mockGroups: ComplaintGroup[] = [
@@ -215,36 +668,38 @@ export const mockGroups: ComplaintGroup[] = [
 ];
 
 export const dashboardStats: DashboardStats = {
-  total: 1248,
-  open: 142,
-  resolved: 985,
-  pending: 121,
-  avgResolutionTime: '3.8h',
-  slaComplianceRate: 96.2,
-  escalated: 24,
-  highSeverity: 56,
-  csat: 4.4,
+  total: 1298,
+  open: 162,
+  resolved: 995,
+  pending: 141,
+  avgResolutionTime: '3.5h',
+  slaComplianceRate: 94.8,
+  escalated: 28,
+  highSeverity: 68,
+  csat: 4.3,
   changes: {
-    total: 15.4,
-    open: -8.2,
-    resolved: 22.1,
-    pending: 4.5,
-    avgResolutionTime: -12.4,
-    slaComplianceRate: 1.8,
-    escalated: 12.5,
-    highSeverity: -5.2,
-    csat: 0.2
+    total: 18.2,
+    open: -6.5,
+    resolved: 24.3,
+    pending: 6.2,
+    avgResolutionTime: -15.2,
+    slaComplianceRate: 2.1,
+    escalated: 14.8,
+    highSeverity: -3.8,
+    csat: 0.3
   }
 };
 
 export const sourceStats: SourceStats[] = [
-  { source: 'WhatsApp', count: 452 },
-  { source: 'Facebook', count: 210 },
-  { source: 'Twitter', count: 158 },
-  { source: 'Gmail', count: 320 },
-  { source: 'Excel', count: 54 },
-  { source: 'PDF', count: 32 },
-  { source: 'Audio', count: 22 }
+  { source: 'WhatsApp', count: 485 },
+  { source: 'Gmail', count: 368 },
+  { source: 'Facebook', count: 225 },
+  { source: 'Twitter', count: 182 },
+  { source: 'Phone', count: 145 },
+  { source: 'Chat', count: 98 },
+  { source: 'Excel', count: 58 },
+  { source: 'PDF', count: 35 },
+  { source: 'Audio', count: 24 }
 ];
 
 export const trendData: TrendData[] = [
@@ -321,18 +776,18 @@ export const agentPerformanceData = [
 ];
 
 export const severityBreakdownData = [
-  { severity: 'Low', count: 452 },
-  { severity: 'Medium', count: 358 },
-  { severity: 'High', count: 254 },
-  { severity: 'Critical', count: 184 }
+  { severity: 'Low', count: 485 },
+  { severity: 'Medium', count: 392 },
+  { severity: 'High', count: 285 },
+  { severity: 'Critical', count: 136 }
 ];
 
 export const statusDistributionData = [
-  { category: 'Technical', open: 45, pending: 62, resolved: 245 },
-  { category: 'App Crash', open: 32, pending: 45, resolved: 180 },
-  { category: 'Internet', open: 52, pending: 38, resolved: 210 },
-  { category: 'Billing', open: 25, pending: 32, resolved: 125 },
-  { category: 'Service', open: 18, pending: 25, resolved: 95 }
+  { category: 'Technical', open: 52, pending: 68, resolved: 268 },
+  { category: 'App Crash', open: 48, pending: 58, resolved: 215 },
+  { category: 'Internet', open: 38, pending: 42, resolved: 185 },
+  { category: 'Billing', open: 35, pending: 48, reached: 158 },
+  { category: 'Service', open: 22, pending: 28, resolved: 102 }
 ];
 
 export const rootCauseData = [
